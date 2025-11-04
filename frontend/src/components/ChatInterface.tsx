@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -26,6 +26,24 @@ const ChatInterface: React.FC = () => {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadHistory = async () => {
+      try {
+        const res = await api.get('/history');
+        if (!mounted) return;
+        clearMessages();
+        (res.data.messages || []).forEach((m: any) => {
+          addMessage({ id: m.id, role: m.role === 'ai' ? 'ai' : 'user', content: m.content, timestamp: m.timestamp ? Date.parse(m.timestamp) : undefined });
+        });
+      } catch (e) {
+        // ignore (user may be unauthenticated)
+      }
+    };
+    loadHistory();
+    return () => { mounted = false; };
+  }, [addMessage, clearMessages]);
 
   const generateMessageId = (() => {
     let counter = 0;

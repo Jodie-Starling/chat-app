@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Integer, String, create_engine, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base, sessionmaker
 from passlib.context import CryptContext
 import os
@@ -33,6 +34,16 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="user", nullable=False)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(10), nullable=False)  # 'user' or 'ai'
+    content = Column(String, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 # Database Utilities

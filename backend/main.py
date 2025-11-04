@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from datetime import timedelta
-from models import get_db, User, get_password_hash, verify_password, init_db
+from models import get_db, User, get_password_hash, verify_password, init_db, ChatMessage as ChatMessageModel
 from auth import create_access_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 import os
 
@@ -91,12 +91,17 @@ def login(user: UserLogin, db=Depends(get_db)):
 
 # --- Chat endpoint ---
 @app.post("/chat")
-async def chat_endpoint(msg: ChatMessage, current_user=Depends(get_current_user)):
+async def chat_endpoint(msg: ChatMessage, current_user=Depends(get_current_user), db=Depends(get_db)):
     """Chat with the AI model (requires valid JWT)."""
     if not msg.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     try:
+        # Persist the user message
+        user_row = ChatMessageModel(user_id=current_user.id, role="user", content=msg.message)
+        db.add(user_row)
+        db.commit()
+
         response = await client.chat.completions.create(
             model="gemini-2.5-pro",
             messages=[
@@ -113,6 +118,11 @@ async def chat_endpoint(msg: ChatMessage, current_user=Depends(get_current_user)
         except Exception:
             ai_reply = getattr(response.choices[0], "text", str(response))
 
+        # Persist AI reply
+        ai_row = ChatMessageModel(user_id=current_user.id, role="ai", content=ai_reply)
+        db.add(ai_row)
+        db.commit()
+
         return {"reply": ai_reply}
 
     except Exception as e:
@@ -123,3 +133,18 @@ async def chat_endpoint(msg: ChatMessage, current_user=Depends(get_current_user)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+@app.get('/history')
+def get_history(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Return chat history for the authenticated user."""
+    rows = db.query(ChatMessageModel).filter(ChatMessageModel.user_id == current_user.id).order_by(ChatMessageModel.timestamp.asc()).all()
+    result = []
+    for r in rows:
+        result.append({
+            'id': r.id,
+            'role': r.role,
+            'content': r.content,
+            'timestamp': r.timestamp.isoformat() if r.timestamp is not None else None,
+        })
+    return {'messages': result}

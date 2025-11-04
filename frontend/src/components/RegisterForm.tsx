@@ -1,35 +1,40 @@
-'use client';
+"use client";
 
 import React, { useState } from 'react';
-import { Box, TextField, Button, Typography, Container, Alert, Link as MuiLink } from '@mui/material';
+import { Box, TextField, Button, Typography, Container, Alert } from '@mui/material';
 import api from '@/utils/api';
 import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
-const LoginForm: React.FC = () => {
+const RegisterForm: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
+      await api.post('/register', { username, password });
+
       const res = await api.post('/login', { username, password });
       login(res.data.access_token, res.data.role);
       router.push('/chat');
     } catch (err: any) {
-      setError(err.response?.data?.detail || '登录失败');
+      setError(err.response?.data?.detail || '注册失败');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <Container maxWidth="sm" sx={{ mt: 8 }}>
       <Box sx={{ p: 4, boxShadow: 3, borderRadius: 2 }}>
-        <Typography variant="h4" gutterBottom>登录</Typography>
+        <Typography variant="h4" gutterBottom>注册</Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>
           <TextField
@@ -47,19 +52,13 @@ const LoginForm: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             margin="normal"
           />
-          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3 }}>
-            登录
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3 }} disabled={loading}>
+            注册
           </Button>
         </form>
-        <Typography sx={{ mt: 2, textAlign: 'center' }}>
-          还没有账号？{' '}
-          <MuiLink component={Link} href="/register">
-            注册
-          </MuiLink>
-        </Typography>
       </Box>
     </Container>
   );
 };
 
-export default LoginForm;
+export default RegisterForm;
