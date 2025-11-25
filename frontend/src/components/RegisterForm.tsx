@@ -25,7 +25,12 @@ const RegisterForm: React.FC = () => {
       login(res.data.access_token, res.data.role);
       router.push('/chat');
     } catch (err: any) {
-      setError(err.response?.data?.detail || '注册失败');
+      console.error('Registration error:', err);
+      if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError(err.message || '注册失败');
+      }
     } finally {
       setLoading(false);
     }
